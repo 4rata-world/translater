@@ -29,7 +29,7 @@ const client = new Client({
 
 // スラッシュコマンドのロード
 client.commands = new Collection();
-const commandsPath = path.join(__dirname, 'commands');
+const commandsPath = path.join(__dirname);
 const commandFiles = readdirSync(commandsPath).filter((f) => f.endsWith('.js'));
 
 for (const file of commandFiles) {
