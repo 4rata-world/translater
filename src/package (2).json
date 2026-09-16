@@ -1,0 +1,15 @@
+{
+  "name": "global-chat-bot",
+  "version": "1.0.0",
+  "description": "Discord global chat bot using webhooks",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy-commands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.2",
+    "dotenv": "^16.4.5"
+  }
+}
