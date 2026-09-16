@@ -9,7 +9,8 @@
     "deploy": "node src/deploy-commands.js"
   },
   "dependencies": {
-    "discord.js": "^14.15.2",
-    "dotenv": "^16.4.5"
-  }
+  "discord.js": "^14.15.2",
+  "dotenv": "^16.4.5",
+  "deepl-node": "^1.13.0"
+}
 }
