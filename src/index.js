@@ -60,6 +60,65 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
+client.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot) return;
+  if (message.webhookId) return;
+  if (!has(message.channelId)) return;
+
+  const banned = getBannedUsers();
+  if (banned.includes(message.author.id)) return;
+
+  const channels = getAll();
+
+  // 同じサーバー内の、他のチャンネルだけ
+  const targets = Object.entries(channels).filter(
+    ([channelId, info]) =>
+      channelId !== message.channelId && info.guildId === message.guildId
+  );
+  if (targets.length === 0) return;
+
+  const attachmentUrls = [...message.attachments.values()].map((a) => a.url);
+  const username = (message.member?.displayName ?? message.author.username).slice(0, 80);
+  const avatarURL = message.author.displayAvatarURL({ extension: 'png', size: 128 }) ?? undefined;
+
+  // 言語ごとに1回だけ翻訳する
+  const cache = {};
+  async function translateTo(lang) {
+    if (!message.content || !lang) return message.content;
+    if (cache[lang] !== undefined) return cache[lang];
+    try {
+      const result = await translator.translateText(message.content, null, lang);
+      cache[lang] = result.text;
+    } catch (err) {
+      console.error('翻訳失敗:', err.message);
+      cache[lang] = message.content;
+    }
+    return cache[lang];
+  }
+
+  await Promise.allSettled(
+    targets.map(async ([channelId, info]) => {
+      try {
+        const text = await translateTo(info.language);
+        const finalContent = [text, ...attachmentUrls].filter(Boolean).join('\n') || null;
+
+        const webhook = new WebhookClient({
+          id: info.webhookId,
+          token: info.webhookToken,
+        });
+        await webhook.send({
+          content: finalContent,
+          embeds: message.embeds.slice(0, 10),
+          username,
+          avatarURL,
+          allowedMentions: { parse: [] },
+        });
+      } catch (err) {
+        console.error(`転送失敗 → ${channelId}:`, err.message);
+      }
+    })
+  );
+});
 
 
 
