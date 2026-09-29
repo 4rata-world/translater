@@ -6,7 +6,7 @@ import {
   Collection,
   WebhookClient,
   Events,
-  Rest,
+  REST,
   Routes,
 } from 'discord.js';
 import * as deepl from 'deepl-node';
