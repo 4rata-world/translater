@@ -23,6 +23,8 @@ export const data = new SlashCommandBuilder()
         { name: 'Italiano', value: 'IT' },
         { name: 'Bahasa Indonesia', value: 'ID' },
         { name: 'Türkçe', value: 'TR' },
+        { name: 'العربية', value: 'AR' },
+
       )
 
   );
