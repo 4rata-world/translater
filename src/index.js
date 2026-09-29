@@ -6,6 +6,8 @@ import {
   Collection,
   WebhookClient,
   Events,
+  Rest,
+  Routes,
 } from 'discord.js';
 import * as deepl from 'deepl-node';
 import { readdirSync } from 'fs';
