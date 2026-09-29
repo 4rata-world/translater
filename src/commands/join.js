@@ -14,7 +14,17 @@ export const data = new SlashCommandBuilder()
         { name: '日本語', value: 'JA' },
         { name: 'English', value: 'EN-US' },
         { name: '한국어', value: 'KO' },
+        { name: '中文（简体）', value: 'ZH' },
+        { name: 'Español', value: 'ES' },
+        { name: 'Français', value: 'FR' },
+        { name: 'Deutsch', value: 'DE' },
+        { name: 'Português', value: 'PT-BR' },
+        { name: 'Русский', value: 'RU' },
+        { name: 'Italiano', value: 'IT' },
+        { name: 'Bahasa Indonesia', value: 'ID' },
+        { name: 'Türkçe', value: 'TR' },
       )
+
   );
 
 export async function execute(interaction) {
