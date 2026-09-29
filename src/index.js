@@ -41,9 +41,19 @@ for (const file of commandFiles) {
   }
 }
 
-client.once(Events.ClientReady, (c) => {
+client.once(Events.ClientReady, async (c) => {
   console.log(`✅ Logged in as ${c.user.tag}`);
+  try {
+    const rest = new REST().setToken(process.env.DISCORD_TOKEN);
+    await rest.put(Routes.applicationCommands(c.user.id), {
+      body: [...client.commands.values()].map((cmd) => cmd.data.toJSON()),
+    });
+    console.log('✅ スラッシュコマンドを登録しました');
+  } catch (err) {
+    console.error('コマンド登録失敗:', err.message);
+  }
 });
+
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
