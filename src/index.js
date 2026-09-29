@@ -69,43 +69,39 @@ client.on(Events.MessageCreate, async (message) => {
   if (banned.includes(message.author.id)) return;
 
   const channels = getAll();
-  const sourceInfo = channels[message.channelId];
-  const sourceLang = sourceInfo?.language ?? null;
+  const sourceLang = channels[message.channelId]?.language ?? null;
 
+  // 同じサーバー内の、他のチャンネルだけ
   const targets = Object.entries(channels).filter(
-    ([channelId]) => channelId !== message.channelId
+    ([channelId, info]) =>
+      channelId !== message.channelId && info.guildId === message.guildId
   );
-
   if (targets.length === 0) return;
 
-  const attachmentUrls = [...message.attachments.values()].map((a) => a.url);
+  // 送信元チャンネルの言語に翻訳（1回だけ）
+  let content = message.content;
+  if (content && sourceLang) {
+    try {
+      const result = await translator.translateText(content, null, sourceLang);
+      content = result.text;
+    } catch (err) {
+      console.error('翻訳失敗:', err.message);
+    }
+  }
 
-  // サーバー名なしのユーザー名
+  const attachmentUrls = [...message.attachments.values()].map((a) => a.url);
+  const finalContent = [content, ...attachmentUrls].filter(Boolean).join('\n') || null;
+
   const username = (message.member?.displayName ?? message.author.username).slice(0, 80);
   const avatarURL = message.author.displayAvatarURL({ extension: 'png', size: 128 }) ?? undefined;
 
   await Promise.allSettled(
     targets.map(async ([channelId, info]) => {
       try {
-        let content = message.content;
-
-        // 翻訳（テキストがある場合のみ）
-        if (content && info.language && info.language !== sourceLang) {
-          try {
-            const result = await translator.translateText(content, null, info.language);
-            content = result.text;
-          } catch (err) {
-            console.error('翻訳失敗:', err.message);
-          }
-        }
-
-        const finalContent = [content, ...attachmentUrls].filter(Boolean).join('\n') || null;
-
         const webhook = new WebhookClient({
           id: info.webhookId,
           token: info.webhookToken,
         });
-
         await webhook.send({
           content: finalContent,
           embeds: message.embeds.slice(0, 10),
@@ -119,5 +115,6 @@ client.on(Events.MessageCreate, async (message) => {
     })
   );
 });
+
 
 client.login(process.env.DISCORD_TOKEN);
