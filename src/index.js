@@ -60,61 +60,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-client.on(Events.MessageCreate, async (message) => {
-  if (message.author.bot) return;
-  if (message.webhookId) return;
-  if (!has(message.channelId)) return;
 
-  const banned = getBannedUsers();
-  if (banned.includes(message.author.id)) return;
-
-  const channels = getAll();
-  const sourceLang = channels[message.channelId]?.language ?? null;
-
-  // 同じサーバー内の、他のチャンネルだけ
-  const targets = Object.entries(channels).filter(
-    ([channelId, info]) =>
-      channelId !== message.channelId && info.guildId === message.guildId
-  );
-  if (targets.length === 0) return;
-
-  // 送信元チャンネルの言語に翻訳（1回だけ）
-  let content = message.content;
-  if (content && sourceLang) {
-    try {
-      const result = await translator.translateText(content, null, sourceLang);
-      content = result.text;
-    } catch (err) {
-      console.error('翻訳失敗:', err.message);
-    }
-  }
-
-  const attachmentUrls = [...message.attachments.values()].map((a) => a.url);
-  const finalContent = [content, ...attachmentUrls].filter(Boolean).join('\n') || null;
-
-  const username = (message.member?.displayName ?? message.author.username).slice(0, 80);
-  const avatarURL = message.author.displayAvatarURL({ extension: 'png', size: 128 }) ?? undefined;
-
-  await Promise.allSettled(
-    targets.map(async ([channelId, info]) => {
-      try {
-        const webhook = new WebhookClient({
-          id: info.webhookId,
-          token: info.webhookToken,
-        });
-        await webhook.send({
-          content: finalContent,
-          embeds: message.embeds.slice(0, 10),
-          username,
-          avatarURL,
-          allowedMentions: { parse: [] },
-        });
-      } catch (err) {
-        console.error(`転送失敗 → ${channelId}:`, err.message);
-      }
-    })
-  );
-});
 
 
 client.login(process.env.DISCORD_TOKEN);
