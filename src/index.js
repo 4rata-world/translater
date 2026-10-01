@@ -37,6 +37,8 @@ async function translationAvailable() {
   return !usageCache.limitReached;
 }
 
+// 元のメッセージID → 転送先のメッセージ（削除の連動用）
+const forwarded = new Map();
 
 const client = new Client({
   intents: [
@@ -73,7 +75,6 @@ client.once(Events.ClientReady, async (c) => {
   }
 });
 
-
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   const command = client.commands.get(interaction.commandName);
@@ -96,8 +97,7 @@ client.on(Events.MessageCreate, async (message) => {
   if (message.webhookId) return;
   if (!has(message.channelId)) return;
 
-    const banned = getBannedUsers(message.guildId);
-
+  const banned = getBannedUsers(message.guildId);
   if (banned.includes(message.author.id)) return;
 
   const channels = getAll();
@@ -108,8 +108,8 @@ client.on(Events.MessageCreate, async (message) => {
       channelId !== message.channelId && info.guildId === message.guildId
   );
   if (targets.length === 0) return;
-  const canTranslate = await translationAvailable();
 
+  const canTranslate = await translationAvailable();
 
   const attachmentUrls = [...message.attachments.values()].map((a) => a.url);
   const username = (message.member?.displayName ?? message.author.username).slice(0, 80);
@@ -130,6 +130,8 @@ client.on(Events.MessageCreate, async (message) => {
     return cache[lang];
   }
 
+  const records = [];
+
   await Promise.allSettled(
     targets.map(async ([channelId, info]) => {
       try {
@@ -138,24 +140,50 @@ client.on(Events.MessageCreate, async (message) => {
           ? '-# ⚠️ 翻訳の上限に達したため、原文のまま転送しています' : null;
         const finalContent = [text, notice, ...attachmentUrls].filter(Boolean).join('\n') || null;
 
-
         const webhook = new WebhookClient({
           id: info.webhookId,
           token: info.webhookToken,
         });
-        await webhook.send({
+        const sent = await webhook.send({
           content: finalContent,
           embeds: message.embeds.slice(0, 10),
           username,
           avatarURL,
           allowedMentions: { parse: [] },
         });
+        records.push({ info, id: sent.id });
       } catch (err) {
         console.error(`転送失敗 → ${channelId}:`, err.message);
+      }
+    })
+  );
+
+  // 削除の連動用に記録（古いものから消して、最大2000件）
+  if (records.length > 0) {
+    forwarded.set(message.id, records);
+    if (forwarded.size > 2000) forwarded.delete(forwarded.keys().next().value);
+  }
+});
+
+// 元のメッセージが消されたら、転送先も消す
+client.on(Events.MessageDelete, async (message) => {
+  const records = forwarded.get(message.id);
+  if (!records) return;
+  forwarded.delete(message.id);
+
+  await Promise.allSettled(
+    records.map(async ({ info, id }) => {
+      try {
+        const webhook = new WebhookClient({
+          id: info.webhookId,
+          token: info.webhookToken,
+        });
+        await webhook.deleteMessage(id);
+      } catch (err) {
+        console.error('転送先の削除に失敗:', err.message);
       }
     })
   );
 });
 
 client.login(process.env.DISCORD_TOKEN);
-
