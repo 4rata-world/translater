@@ -134,7 +134,10 @@ client.on(Events.MessageCreate, async (message) => {
     targets.map(async ([channelId, info]) => {
       try {
         const text = await translateTo(info.language);
-        const finalContent = [text, ...attachmentUrls].filter(Boolean).join('\n') || null;
+        const notice = !canTranslate && message.content && info.language
+          ? '-# ⚠️ 翻訳の上限に達したため、原文のまま転送しています' : null;
+        const finalContent = [text, notice, ...attachmentUrls].filter(Boolean).join('\n') || null;
+
 
         const webhook = new WebhookClient({
           id: info.webhookId,
