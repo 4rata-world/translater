@@ -108,6 +108,8 @@ client.on(Events.MessageCreate, async (message) => {
       channelId !== message.channelId && info.guildId === message.guildId
   );
   if (targets.length === 0) return;
+  const canTranslate = await translationAvailable();
+
 
   const attachmentUrls = [...message.attachments.values()].map((a) => a.url);
   const username = (message.member?.displayName ?? message.author.username).slice(0, 80);
