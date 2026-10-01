@@ -1,4 +1,4 @@
- import 'dotenv/config';
+import 'dotenv/config';
 import {
   Client,
   GatewayIntentBits,
@@ -118,7 +118,7 @@ client.on(Events.MessageCreate, async (message) => {
   // 言語ごとに1回だけ翻訳する
   const cache = {};
   async function translateTo(lang) {
-    if (!message.content || !lang) return message.content;
+    if (!message.content || !lang || !canTranslate) return message.content;
     if (cache[lang] !== undefined) return cache[lang];
     try {
       const result = await translator.translateText(message.content, null, lang);
