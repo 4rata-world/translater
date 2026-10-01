@@ -77,7 +77,8 @@ client.on(Events.MessageCreate, async (message) => {
   if (message.webhookId) return;
   if (!has(message.channelId)) return;
 
-  const banned = getBannedUsers();
+    const banned = getBannedUsers(message.guildId);
+
   if (banned.includes(message.author.id)) return;
 
   const channels = getAll();
