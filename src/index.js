@@ -37,7 +37,7 @@ async function translationAvailable() {
   return !usageCache.limitReached;
 }
 
-// 元のメッセージID → { content, records }（削除・編集の連動用）
+// 元のメッセージID → { content, quote, records }（削除・編集の連動用）
 const forwarded = new Map();
 
 // 言語ごとに1回だけ翻訳する関数を作る
@@ -57,13 +57,41 @@ function makeTranslateTo(content, canTranslate) {
   };
 }
 
+// 返信先の引用（名前と本文の冒頭）を作る
+async function buildQuote(message) {
+  if (!message.reference?.messageId) return null;
+  try {
+    const ref = await message.fetchReference();
+    const name = (ref.member?.displayName ?? ref.author.username).slice(0, 40);
+    let snippet = ref.content
+      .split('\n')
+      .filter((l) => !l.startsWith('> ') && !l.startsWith('-# '))
+      .join(' ')
+      .trim();
+    if (snippet.length > 60) snippet = snippet.slice(0, 60) + '…';
+    if (!snippet) snippet = ref.attachments.size > 0 ? '📎' : '';
+    return snippet ? { name, snippet } : null;
+  } catch {
+    return null;
+  }
+}
+
 // 転送先に送る本文を作る
-async function render(message, info, translateTo, canTranslate) {
+async function render(message, info, translateTo, canTranslate, quote, quoteTranslateTo) {
   const text = await translateTo(info.language);
+
+  let quoteLine = null;
+  if (quote) {
+    const q = (await quoteTranslateTo(info.language)).replace(/\n/g, ' ');
+    quoteLine = `> ↩ **${quote.name}**: ${q}`;
+  }
+
   const notice = !canTranslate && message.content && info.language
     ? '-# ⚠️ 翻訳の上限に達したため、原文のまま転送しています' : null;
   const attachmentUrls = [...message.attachments.values()].map((a) => a.url);
-  return [text, notice, ...attachmentUrls].filter(Boolean).join('\n') || null;
+
+  const body = [quoteLine, text, notice, ...attachmentUrls].filter(Boolean).join('\n');
+  return body ? body.slice(0, 2000) : null;
 }
 
 const client = new Client({
@@ -138,6 +166,9 @@ client.on(Events.MessageCreate, async (message) => {
   const canTranslate = await translationAvailable();
   const translateTo = makeTranslateTo(message.content, canTranslate);
 
+  const quote = await buildQuote(message);
+  const quoteTranslateTo = makeTranslateTo(quote?.snippet, canTranslate);
+
   const username = (message.member?.displayName ?? message.author.username).slice(0, 80);
   const avatarURL = message.author.displayAvatarURL({ extension: 'png', size: 128 }) ?? undefined;
 
@@ -146,7 +177,9 @@ client.on(Events.MessageCreate, async (message) => {
   await Promise.allSettled(
     targets.map(async ([channelId, info]) => {
       try {
-        const finalContent = await render(message, info, translateTo, canTranslate);
+        const finalContent = await render(
+          message, info, translateTo, canTranslate, quote, quoteTranslateTo
+        );
 
         const webhook = new WebhookClient({
           id: info.webhookId,
@@ -168,7 +201,7 @@ client.on(Events.MessageCreate, async (message) => {
 
   // 削除・編集の連動用に記録（古いものから消して、最大2000件）
   if (records.length > 0) {
-    forwarded.set(message.id, { content: message.content, records });
+    forwarded.set(message.id, { content: message.content, quote, records });
     if (forwarded.size > 2000) forwarded.delete(forwarded.keys().next().value);
   }
 });
@@ -192,11 +225,14 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
 
   const canTranslate = await translationAvailable();
   const translateTo = makeTranslateTo(newMessage.content, canTranslate);
+  const quoteTranslateTo = makeTranslateTo(entry.quote?.snippet, canTranslate);
 
   await Promise.allSettled(
     entry.records.map(async ({ info, id }) => {
       try {
-        const finalContent = await render(newMessage, info, translateTo, canTranslate);
+        const finalContent = await render(
+          newMessage, info, translateTo, canTranslate, entry.quote, quoteTranslateTo
+        );
         if (!finalContent) return;
 
         const webhook = new WebhookClient({
