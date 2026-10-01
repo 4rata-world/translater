@@ -37,8 +37,34 @@ async function translationAvailable() {
   return !usageCache.limitReached;
 }
 
-// 元のメッセージID → 転送先のメッセージ（削除の連動用）
+// 元のメッセージID → { content, records }（削除・編集の連動用）
 const forwarded = new Map();
+
+// 言語ごとに1回だけ翻訳する関数を作る
+function makeTranslateTo(content, canTranslate) {
+  const cache = {};
+  return async function translateTo(lang) {
+    if (!content || !lang || !canTranslate) return content;
+    if (cache[lang] !== undefined) return cache[lang];
+    try {
+      const result = await translator.translateText(content, null, lang);
+      cache[lang] = result.text;
+    } catch (err) {
+      console.error('翻訳失敗:', err.message);
+      cache[lang] = content;
+    }
+    return cache[lang];
+  };
+}
+
+// 転送先に送る本文を作る
+async function render(message, info, translateTo, canTranslate) {
+  const text = await translateTo(info.language);
+  const notice = !canTranslate && message.content && info.language
+    ? '-# ⚠️ 翻訳の上限に達したため、原文のまま転送しています' : null;
+  const attachmentUrls = [...message.attachments.values()].map((a) => a.url);
+  return [text, notice, ...attachmentUrls].filter(Boolean).join('\n') || null;
+}
 
 const client = new Client({
   intents: [
@@ -110,35 +136,17 @@ client.on(Events.MessageCreate, async (message) => {
   if (targets.length === 0) return;
 
   const canTranslate = await translationAvailable();
+  const translateTo = makeTranslateTo(message.content, canTranslate);
 
-  const attachmentUrls = [...message.attachments.values()].map((a) => a.url);
   const username = (message.member?.displayName ?? message.author.username).slice(0, 80);
   const avatarURL = message.author.displayAvatarURL({ extension: 'png', size: 128 }) ?? undefined;
-
-  // 言語ごとに1回だけ翻訳する
-  const cache = {};
-  async function translateTo(lang) {
-    if (!message.content || !lang || !canTranslate) return message.content;
-    if (cache[lang] !== undefined) return cache[lang];
-    try {
-      const result = await translator.translateText(message.content, null, lang);
-      cache[lang] = result.text;
-    } catch (err) {
-      console.error('翻訳失敗:', err.message);
-      cache[lang] = message.content;
-    }
-    return cache[lang];
-  }
 
   const records = [];
 
   await Promise.allSettled(
     targets.map(async ([channelId, info]) => {
       try {
-        const text = await translateTo(info.language);
-        const notice = !canTranslate && message.content && info.language
-          ? '-# ⚠️ 翻訳の上限に達したため、原文のまま転送しています' : null;
-        const finalContent = [text, notice, ...attachmentUrls].filter(Boolean).join('\n') || null;
+        const finalContent = await render(message, info, translateTo, canTranslate);
 
         const webhook = new WebhookClient({
           id: info.webhookId,
@@ -158,21 +166,62 @@ client.on(Events.MessageCreate, async (message) => {
     })
   );
 
-  // 削除の連動用に記録（古いものから消して、最大2000件）
+  // 削除・編集の連動用に記録（古いものから消して、最大2000件）
   if (records.length > 0) {
-    forwarded.set(message.id, records);
+    forwarded.set(message.id, { content: message.content, records });
     if (forwarded.size > 2000) forwarded.delete(forwarded.keys().next().value);
   }
 });
 
+// 元のメッセージが編集されたら、転送先も書き換える
+client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
+  const entry = forwarded.get(newMessage.id);
+  if (!entry) return;
+
+  if (newMessage.partial) {
+    try {
+      newMessage = await newMessage.fetch();
+    } catch {
+      return;
+    }
+  }
+
+  // 本文が変わっていない更新（リンクのプレビュー表示など）は無視
+  if (newMessage.content === entry.content) return;
+  entry.content = newMessage.content;
+
+  const canTranslate = await translationAvailable();
+  const translateTo = makeTranslateTo(newMessage.content, canTranslate);
+
+  await Promise.allSettled(
+    entry.records.map(async ({ info, id }) => {
+      try {
+        const finalContent = await render(newMessage, info, translateTo, canTranslate);
+        if (!finalContent) return;
+
+        const webhook = new WebhookClient({
+          id: info.webhookId,
+          token: info.webhookToken,
+        });
+        await webhook.editMessage(id, {
+          content: finalContent,
+          allowedMentions: { parse: [] },
+        });
+      } catch (err) {
+        console.error('転送先の編集に失敗:', err.message);
+      }
+    })
+  );
+});
+
 // 元のメッセージが消されたら、転送先も消す
 client.on(Events.MessageDelete, async (message) => {
-  const records = forwarded.get(message.id);
-  if (!records) return;
+  const entry = forwarded.get(message.id);
+  if (!entry) return;
   forwarded.delete(message.id);
 
   await Promise.allSettled(
-    records.map(async ({ info, id }) => {
+    entry.records.map(async ({ info, id }) => {
       try {
         const webhook = new WebhookClient({
           id: info.webhookId,
