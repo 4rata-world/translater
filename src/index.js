@@ -19,6 +19,25 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const translator = new deepl.Translator(process.env.DEEPL_API_KEY);
 
+// DeepLの使用量を10分ごとに確認する
+let usageCache = { at: 0, limitReached: false };
+async function translationAvailable() {
+  if (Date.now() - usageCache.at < 10 * 60 * 1000) return !usageCache.limitReached;
+  try {
+    const usage = await translator.getUsage();
+    usageCache = { at: Date.now(), limitReached: usage.anyLimitReached() };
+    if (usage.character) {
+      const pct = Math.round((usage.character.count / usage.character.limit) * 100);
+      if (pct >= 90) console.warn(`⚠️ DeepLの使用量が${pct}%です`);
+    }
+  } catch (err) {
+    console.error('使用量の確認に失敗:', err.message);
+    usageCache = { at: Date.now(), limitReached: false };
+  }
+  return !usageCache.limitReached;
+}
+
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
