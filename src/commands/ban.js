@@ -28,22 +28,23 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   await interaction.deferReply({ ephemeral: true });
 
+  const guildId = interaction.guildId;
   const sub = interaction.options.getSubcommand();
 
   if (sub === 'add') {
     const user = interaction.options.getUser('user');
-    banUser(user.id);
-    return interaction.editReply(`🔨 **${user.tag}** をグローバルチャットからBANしました。`);
+    banUser(guildId, user.id);
+    return interaction.editReply(`🔨 **${user.tag}** をこのサーバーのグローバルチャットからBANしました。`);
   }
 
   if (sub === 'remove') {
     const user = interaction.options.getUser('user');
-    unbanUser(user.id);
+    unbanUser(guildId, user.id);
     return interaction.editReply(`✅ **${user.tag}** のBANを解除しました。`);
   }
 
   if (sub === 'list') {
-    const banned = getBannedUsers();
+    const banned = getBannedUsers(guildId);
     if (banned.length === 0) {
       return interaction.editReply('📋 BANリストは空です。');
     }
@@ -52,4 +53,3 @@ export async function execute(interaction) {
     );
   }
 }
-
