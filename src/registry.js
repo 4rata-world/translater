@@ -1,9 +1,3 @@
-/**
- * registry.js
- * グローバルチャットに参加しているチャンネルの管理
- * 本番運用ではSQLiteやRedisに差し替え推奨
- */
-
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 
 const DATA_DIR = './data';
@@ -24,19 +18,6 @@ function saveChannels(data) {
   ensureDataDir();
   writeFileSync(CHANNELS_FILE, JSON.stringify(data, null, 2));
 }
-
-/**
- * channels.json の構造:
- * {
- *   "channelId": {
- *     "guildId": "...",
- *     "guildName": "...",
- *     "channelName": "...",
- *     "webhookId": "...",
- *     "webhookToken": "..."
- *   }
- * }
- */
 
 export function getAll() {
   return loadChannels();
@@ -62,28 +43,40 @@ export function has(channelId) {
   return channelId in loadChannels();
 }
 
-export function list() {
-  return Object.entries(loadChannels()).map(([channelId, info]) => ({
-    channelId,
-    ...info,
-  }));
+// guildId を渡すと、そのサーバーのチャンネルだけ返す
+export function list(guildId) {
+  return Object.entries(loadChannels())
+    .filter(([, info]) => !guildId || info.guildId === guildId)
+    .map(([channelId, info]) => ({ channelId, ...info }));
 }
 
-export function getBannedUsers() {
+// BANリストはサーバーごと: { "guildId": ["userId", ...] }
+function loadBanned() {
   ensureDataDir();
-  if (!existsSync(BANNED_FILE)) return [];
-  return JSON.parse(readFileSync(BANNED_FILE, 'utf-8'));
+  if (!existsSync(BANNED_FILE)) return {};
+  const data = JSON.parse(readFileSync(BANNED_FILE, 'utf-8'));
+  return Array.isArray(data) ? {} : data; // 旧形式（全サーバー共通）は破棄
 }
 
-export function banUser(userId) {
-  const banned = getBannedUsers();
-  if (!banned.includes(userId)) {
-    banned.push(userId);
-    writeFileSync(BANNED_FILE, JSON.stringify(banned, null, 2));
-  }
+function saveBanned(data) {
+  ensureDataDir();
+  writeFileSync(BANNED_FILE, JSON.stringify(data, null, 2));
 }
 
-export function unbanUser(userId) {
-  const banned = getBannedUsers().filter((id) => id !== userId);
-  writeFileSync(BANNED_FILE, JSON.stringify(banned, null, 2));
+export function getBannedUsers(guildId) {
+  return loadBanned()[guildId] ?? [];
+}
+
+export function banUser(guildId, userId) {
+  const data = loadBanned();
+  const banned = data[guildId] ?? [];
+  if (!banned.includes(userId)) banned.push(userId);
+  data[guildId] = banned;
+  saveBanned(data);
+}
+
+export function unbanUser(guildId, userId) {
+  const data = loadBanned();
+  data[guildId] = (data[guildId] ?? []).filter((id) => id !== userId);
+  saveBanned(data);
 }
