@@ -37,26 +37,8 @@ async function translationAvailable() {
   return !usageCache.limitReached;
 }
 
-// 元のメッセージID → { content, quote, channelId, records }（削除・編集・リアクションの連動用）
+// 元のメッセージID → { content, quote, records }（削除・編集の連動用）
 const forwarded = new Map();
-// 元・転送先どちらのメッセージIDからでも、元のIDを引けるようにする
-const groupIndex = new Map();
-
-function remember(originId, entry) {
-  forwarded.set(originId, entry);
-  groupIndex.set(originId, originId);
-  for (const r of entry.records) groupIndex.set(r.id, originId);
-  // 古いものから消して、最大2000件
-  if (forwarded.size > 2000) forget(forwarded.keys().next().value);
-}
-
-function forget(originId) {
-  const entry = forwarded.get(originId);
-  if (!entry) return;
-  groupIndex.delete(originId);
-  for (const r of entry.records) groupIndex.delete(r.id);
-  forwarded.delete(originId);
-}
 
 // 言語ごとに1回だけ翻訳する関数を作る
 function makeTranslateTo(content, canTranslate) {
@@ -118,9 +100,8 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildWebhooks,
-    GatewayIntentBits.GuildMessageReactions,
   ],
-  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+  partials: [Partials.Message, Partials.Channel],
 });
 
 client.commands = new Collection();
@@ -211,20 +192,17 @@ client.on(Events.MessageCreate, async (message) => {
           avatarURL,
           allowedMentions: { parse: [] },
         });
-        records.push({ info, id: sent.id, channelId });
+        records.push({ info, id: sent.id });
       } catch (err) {
         console.error(`転送失敗 → ${channelId}:`, err.message);
       }
     })
   );
 
+  // 削除・編集の連動用に記録（古いものから消して、最大2000件）
   if (records.length > 0) {
-    remember(message.id, {
-      content: message.content,
-      quote,
-      channelId: message.channelId,
-      records,
-    });
+    forwarded.set(message.id, { content: message.content, quote, records });
+    if (forwarded.size > 2000) forwarded.delete(forwarded.keys().next().value);
   }
 });
 
@@ -276,7 +254,7 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
 client.on(Events.MessageDelete, async (message) => {
   const entry = forwarded.get(message.id);
   if (!entry) return;
-  forget(message.id);
+  forwarded.delete(message.id);
 
   await Promise.allSettled(
     entry.records.map(async ({ info, id }) => {
@@ -288,33 +266,6 @@ client.on(Events.MessageDelete, async (message) => {
         await webhook.deleteMessage(id);
       } catch (err) {
         console.error('転送先の削除に失敗:', err.message);
-      }
-    })
-  );
-});
-
-// リアクションが付いたら、同じメッセージの他のコピーにも付ける
-client.on(Events.MessageReactionAdd, async (reaction, user) => {
-  if (user.bot) return;
-
-  const originId = groupIndex.get(reaction.message.id);
-  if (!originId) return;
-  const entry = forwarded.get(originId);
-  if (!entry) return;
-
-  const members = [
-    { channelId: entry.channelId, id: originId },
-    ...entry.records.map((r) => ({ channelId: r.channelId, id: r.id })),
-  ].filter((m) => m.id !== reaction.message.id);
-
-  await Promise.allSettled(
-    members.map(async (m) => {
-      try {
-        const channel = await client.channels.fetch(m.channelId);
-        const msg = await channel.messages.fetch(m.id);
-        await msg.react(reaction.emoji);
-      } catch (err) {
-        console.error('リアクションの転送に失敗:', err.message);
       }
     })
   );
