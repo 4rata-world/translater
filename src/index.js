@@ -126,7 +126,17 @@ for (const file of commandFiles) {
   }
 }
 
-client.once(Events.ClientReady, async (c) => {
+// src/features/ の機能を読み込む
+const featuresPath = path.join(__dirname, 'features');
+if (existsSync(featuresPath)) {
+  for (const file of readdirSync(featuresPath).filter((f) => f.endsWith('.js'))) {
+    const feature = await import(pathToFileURL(path.join(featuresPath, file)).href);
+    feature.register?.(client);
+  }
+}
+
+
+  client.once(Events.ClientReady, async (c) => {
   console.log(`✅ Logged in as ${c.user.tag}`);
   try {
     const rest = new REST().setToken(process.env.DISCORD_TOKEN);
