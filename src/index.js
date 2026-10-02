@@ -168,7 +168,9 @@ client.on(Events.MessageCreate, async (message) => {
   if (banned.includes(message.author.id)) return;
 
   const channels = getAll();
+  if (channels[message.channelId]?.paused) return;
   const srcLang = channels[message.channelId]?.language ?? null;
+
 
   // 同じサーバー内の、他のチャンネルだけ
   const targets = Object.entries(channels).filter(
