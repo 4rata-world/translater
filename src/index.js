@@ -10,7 +10,7 @@ import {
   Routes,
 } from 'discord.js';
 import * as deepl from 'deepl-node';
-import { readdirSync } from 'fs';
+import { readdirSync, existsSync } from 'fs';
 import { fileURLToPath, pathToFileURL } from 'url';
 import path from 'path';
 import { getAll, has, getBannedUsers } from './registry.js';
