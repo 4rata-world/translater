@@ -14,6 +14,7 @@ import { readdirSync } from 'fs';
 import { fileURLToPath, pathToFileURL } from 'url';
 import path from 'path';
 import { getAll, has, getBannedUsers } from './registry.js';
+import { getGlossaryId, base } from './glossary.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,17 +38,29 @@ async function translationAvailable() {
   return !usageCache.limitReached;
 }
 
-// 元のメッセージID → { content, quote, records }（削除・編集の連動用）
+// 元のメッセージID → { content, quote, guildId, srcLang, records }（削除・編集の連動用）
 const forwarded = new Map();
 
 // 言語ごとに1回だけ翻訳する関数を作る
-function makeTranslateTo(content, canTranslate) {
+// guildId と srcLang を渡すと、スラング辞書（用語集）があればそれを使う
+function makeTranslateTo(content, canTranslate, guildId = null, srcLang = null) {
   const cache = {};
   return async function translateTo(lang) {
     if (!content || !lang || !canTranslate) return content;
     if (cache[lang] !== undefined) return cache[lang];
     try {
-      const result = await translator.translateText(content, null, lang);
+      const glossaryId = guildId && srcLang ? getGlossaryId(guildId, srcLang, lang) : null;
+      let result;
+      if (glossaryId) {
+        try {
+          result = await translator.translateText(content, base(srcLang), lang, {
+            glossary: glossaryId,
+          });
+        } catch (err) {
+          console.error('用語集つきの翻訳に失敗、通常の翻訳に切り替え:', err.message);
+        }
+      }
+      result ??= await translator.translateText(content, null, lang);
       cache[lang] = result.text;
     } catch (err) {
       console.error('翻訳失敗:', err.message);
@@ -155,6 +168,7 @@ client.on(Events.MessageCreate, async (message) => {
   if (banned.includes(message.author.id)) return;
 
   const channels = getAll();
+  const srcLang = channels[message.channelId]?.language ?? null;
 
   // 同じサーバー内の、他のチャンネルだけ
   const targets = Object.entries(channels).filter(
@@ -164,7 +178,7 @@ client.on(Events.MessageCreate, async (message) => {
   if (targets.length === 0) return;
 
   const canTranslate = await translationAvailable();
-  const translateTo = makeTranslateTo(message.content, canTranslate);
+  const translateTo = makeTranslateTo(message.content, canTranslate, message.guildId, srcLang);
 
   const quote = await buildQuote(message);
   const quoteTranslateTo = makeTranslateTo(quote?.snippet, canTranslate);
@@ -201,7 +215,13 @@ client.on(Events.MessageCreate, async (message) => {
 
   // 削除・編集の連動用に記録（古いものから消して、最大2000件）
   if (records.length > 0) {
-    forwarded.set(message.id, { content: message.content, quote, records });
+    forwarded.set(message.id, {
+      content: message.content,
+      quote,
+      guildId: message.guildId,
+      srcLang,
+      records,
+    });
     if (forwarded.size > 2000) forwarded.delete(forwarded.keys().next().value);
   }
 });
@@ -224,7 +244,7 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
   entry.content = newMessage.content;
 
   const canTranslate = await translationAvailable();
-  const translateTo = makeTranslateTo(newMessage.content, canTranslate);
+  const translateTo = makeTranslateTo(newMessage.content, canTranslate, entry.guildId, entry.srcLang);
   const quoteTranslateTo = makeTranslateTo(entry.quote?.snippet, canTranslate);
 
   await Promise.allSettled(
