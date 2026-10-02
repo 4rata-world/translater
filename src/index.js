@@ -8,7 +8,9 @@ import {
   Events,
   REST,
   Routes,
+  ActivityType,
 } from 'discord.js';
+
 import * as deepl from 'deepl-node';
 import { readdirSync, existsSync } from 'fs';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -140,7 +142,9 @@ if (existsSync(featuresPath)) {
 }
 
 client.once(Events.ClientReady, async (c) => {
-  console.log(`✅ Logged in as ${c.user.tag}`);
+      console.log(`✅ Logged in as ${c.user.tag}`);
+      c.user.setActivity('/help', { type: ActivityType.Playing });
+
   try {
     const rest = new REST().setToken(process.env.DISCORD_TOKEN);
     await rest.put(Routes.applicationCommands(c.user.id), {
