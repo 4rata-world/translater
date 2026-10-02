@@ -108,13 +108,11 @@ async function render(message, info, translateTo, canTranslate, quote, quoteTran
 
 const client = new Client({
   intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildWebhooks,
+        GatewayIntentBits.GuildWebhooks,
+    GatewayIntentBits.GuildMembers,
   ],
-  partials: [Partials.Message, Partials.Channel],
-});
+  partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
+
 
 client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
