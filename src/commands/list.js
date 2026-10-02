@@ -25,7 +25,7 @@ export async function execute(interaction) {
     .setColor(0x5865f2)
     .setDescription(
       channels
-        .map((c, i) => `**${i + 1}.** <#${c.channelId}>（${LANG_NAMES[c.language] ?? '未設定'}）`)
+        .map((c, i) => `**${i + 1}.** <#${c.channelId}>（${LANG_NAMES[c.language] ?? '未設定'}）${c.paused ? ' ⏸ 停止中' : ''}`)
         .join('\n')
     )
     .setFooter({ text: `合計 ${channels.length} チャンネル` })
