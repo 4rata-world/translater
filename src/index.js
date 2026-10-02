@@ -40,7 +40,6 @@ async function translationAvailable() {
 
 // 元のメッセージID → { content, quote, guildId, srcLang, records }（削除・編集の連動用）
 const forwarded = new Map();
-
 // 言語ごとに1回だけ翻訳する関数を作る
 // guildId と srcLang を渡すと、スラング辞書（用語集）があればそれを使う
 function makeTranslateTo(content, canTranslate, guildId = null, srcLang = null) {
@@ -175,7 +174,8 @@ client.on(Events.MessageCreate, async (message) => {
   // 同じサーバー内の、他のチャンネルだけ
   const targets = Object.entries(channels).filter(
     ([channelId, info]) =>
-      channelId !== message.channelId && info.guildId === message.guildId
+    channelId !== message.channelId && info.guildId === message.guildId && !info.paused
+
   );
   if (targets.length === 0) return;
 
