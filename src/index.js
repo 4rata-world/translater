@@ -40,6 +40,7 @@ async function translationAvailable() {
 
 // 元のメッセージID → { content, quote, guildId, srcLang, records }（削除・編集の連動用）
 const forwarded = new Map();
+
 // 言語ごとに1回だけ翻訳する関数を作る
 // guildId と srcLang を渡すと、スラング辞書（用語集）があればそれを使う
 function makeTranslateTo(content, canTranslate, guildId = null, srcLang = null) {
@@ -108,11 +109,14 @@ async function render(message, info, translateTo, canTranslate, quote, quoteTran
 
 const client = new Client({
   intents: [
-        GatewayIntentBits.GuildWebhooks,
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildWebhooks,
     GatewayIntentBits.GuildMembers,
   ],
   partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
-
+});
 
 client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
@@ -135,8 +139,7 @@ if (existsSync(featuresPath)) {
   }
 }
 
-
-  client.once(Events.ClientReady, async (c) => {
+client.once(Events.ClientReady, async (c) => {
   console.log(`✅ Logged in as ${c.user.tag}`);
   try {
     const rest = new REST().setToken(process.env.DISCORD_TOKEN);
@@ -178,12 +181,10 @@ client.on(Events.MessageCreate, async (message) => {
   if (channels[message.channelId]?.paused) return;
   const srcLang = channels[message.channelId]?.language ?? null;
 
-
   // 同じサーバー内の、他のチャンネルだけ
   const targets = Object.entries(channels).filter(
     ([channelId, info]) =>
-    channelId !== message.channelId && info.guildId === message.guildId && !info.paused
-
+      channelId !== message.channelId && info.guildId === message.guildId && !info.paused
   );
   if (targets.length === 0) return;
 
