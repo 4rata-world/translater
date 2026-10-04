@@ -30,8 +30,18 @@ export async function execute(interaction) {
         ].join('\n'),
       },
       {
+        name: '🛡 モデレーション',
+        value: [
+          '`/mod purge` メッセージをまとめて削除',
+          '`/mod timeout` `/mod untimeout` タイムアウト',
+          '`/mod kick` `/mod ban` `/mod unban`',
+          '`/modlog` ログの送り先を設定（削除・編集・参加退出・管理操作）',
+        ].join('\n'),
+      },
+      {
         name: '✨ 便利機能',
         value: [
+          '`/poll` アンケートを作る',
           '`/embed` 埋め込みメッセージを送る',
           '`/rolepanel` ボタンでロールを付け外しするパネル',
           '`/verify` 押すとロールが付く認証ボタン',
