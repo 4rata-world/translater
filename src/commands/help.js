@@ -44,7 +44,8 @@ export async function execute(interaction) {
           '`/poll` アンケートを作る',
           '`/embed` 埋め込みメッセージを送る',
           '`/rolepanel` ボタンでロールを付け外しするパネル',
-          '`/verify` 押すとロールが付く認証ボタン',
+          '`/verify` 押すとロールが付く認証ボタン（アカウント作成日の条件も付けられる）',
+          '`/webverify` ウェブで人間チェックをする認証',
           '`/welcome` ようこそメッセージの設定',
         ].join('\n'),
       }
