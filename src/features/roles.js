@@ -23,7 +23,7 @@ export function roleProblem(role) {
 export function register(client) {
   client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isButton()) return;
-    const [kind, roleId] = interaction.customId.split(':');
+    const [kind, roleId, minDays] = interaction.customId.split(':');
     if (kind !== 'role' && kind !== 'verify') return;
 
     const reply = (content) =>
@@ -39,6 +39,13 @@ export function register(client) {
     try {
       if (kind === 'verify') {
         if (member.roles.cache.has(roleId)) return reply('✅ すでに認証済みです。');
+        const days = Number(minDays) || 0;
+        if (days > 0) {
+          const age = (Date.now() - interaction.user.createdTimestamp) / 86400000;
+          if (age < days) {
+            return reply(`❌ Discordアカウントを作ってから${days}日以上たっていないため、認証できません。`);
+          }
+        }
         await member.roles.add(role);
         return reply(`✅ 認証しました。**${role.name}** を付けました。`);
       }
