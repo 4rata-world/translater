@@ -5,6 +5,19 @@ import {
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
+const COLORS = [
+  { name: '🔵 ブルー（Discord）', value: '#5865F2' },
+  { name: '🔴 レッド', value: '#ED4245' },
+  { name: '🟢 グリーン', value: '#57F287' },
+  { name: '🟡 イエロー', value: '#FEE75C' },
+  { name: '🟠 オレンジ', value: '#E67E22' },
+  { name: '🟣 パープル', value: '#9B59B6' },
+  { name: '🩷 ピンク', value: '#EB459E' },
+  { name: '🩵 水色', value: '#3BA5E5' },
+  { name: '⚪ ホワイト', value: '#FFFFFF' },
+  { name: '⚫ ブラック', value: '#23272A' },
+];
+
 export const data = new SlashCommandBuilder()
   .setName('embed')
   .setDescription('埋め込みメッセージを送ります')
@@ -12,7 +25,8 @@ export const data = new SlashCommandBuilder()
   .addStringOption((o) => o.setName('title').setDescription('タイトル').setRequired(true).setMaxLength(256))
   .addStringOption((o) => o.setName('description').setDescription('本文（改行したい所には \\n と書く）').setRequired(true).setMaxLength(4000))
   .addAttachmentOption((o) => o.setName('image_file').setDescription('画像をそのまま添付する（スマホの写真もOK）'))
-  .addStringOption((o) => o.setName('color').setDescription('色（例: #5865F2）'))
+  .addStringOption((o) => o.setName('color').setDescription('色を選ぶ').addChoices(...COLORS))
+  .addStringOption((o) => o.setName('color_code').setDescription('好きな色を自分で指定する（例: #FF8800）。選んだ色より優先'))
   .addStringOption((o) => o.setName('image').setDescription('画像のURL（画像ファイルを使わない場合）'))
   .addStringOption((o) => o.setName('footer').setDescription('下に小さく出す文字').setMaxLength(200))
   .addChannelOption((o) =>
@@ -24,13 +38,13 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   const flags = MessageFlags.Ephemeral;
-  const color = interaction.options.getString('color');
+  const color = interaction.options.getString('color_code') ?? interaction.options.getString('color');
   const imageUrl = interaction.options.getString('image');
   const file = interaction.options.getAttachment('image_file');
   const footer = interaction.options.getString('footer');
 
   if (color && !/^#?[0-9a-fA-F]{6}$/.test(color)) {
-    return interaction.reply({ content: '⚠️ 色は `#5865F2` のように6桁で書いてください。', flags });
+    return interaction.reply({ content: '⚠️ 色のコードは `#5865F2` のように6桁で書いてください。', flags });
   }
   if (imageUrl && !/^https?:\/\//.test(imageUrl)) {
     return interaction.reply({ content: '⚠️ 画像のURLは `https://` から始まるものにしてください。', flags });
