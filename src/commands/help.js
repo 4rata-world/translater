@@ -6,12 +6,12 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   const embed = new EmbedBuilder()
-    .setTitle('📖 Karisuke の使い方')
+    .setTitle('📍📕Karisuke の使い方')
     .setColor(0x5865f2)
     .setDescription('チャンネルをつないで、メッセージを各チャンネルの言語に翻訳して届けるBotです。')
     .addFields(
       {
-        name: '🌐 グローバルチャット',
+        name: 'グローバルチャット',
         value: [
           '`/global-join` このチャンネルをつなぐ（言語を選ぶ）',
           '`/global-leave` つなぐのをやめる',
@@ -21,16 +21,16 @@ export async function execute(interaction) {
         ].join('\n'),
       },
       {
-        name: '🛠 管理',
+        name: '管理',
         value: [
           '`/global-announce` 全チャンネルにお知らせを送る',
           '`/global-ban` 転送しないユーザーの管理',
           '`/global-slang` 決まった訳し方の登録',
-          '`/global-stats` 翻訳の使用量（Botの持ち主のみ）',
+          '`/global-stats` 翻訳の使用量（管理者用）',
         ].join('\n'),
       },
       {
-        name: '🛡 モデレーション',
+        name: 'モデレーション',
         value: [
           '`/mod purge` メッセージをまとめて削除',
           '`/mod timeout` `/mod untimeout` タイムアウト',
@@ -39,7 +39,7 @@ export async function execute(interaction) {
         ].join('\n'),
       },
       {
-        name: '✨ 便利機能',
+        name: '便利機能',
         value: [
           '`/poll` アンケートを作る',
           '`/embed` 埋め込みメッセージを送る',
