@@ -143,7 +143,7 @@ if (existsSync(featuresPath)) {
 
 client.once(Events.ClientReady, async (c) => {
       console.log(`✅ Logged in as ${c.user.tag}`);
-      c.user.setActivity('/help', { type: ActivityType.Playing });
+      c.user.setActivity('VR', { type: ActivityType.Watching });
 
   try {
     const rest = new REST().setToken(process.env.DISCORD_TOKEN);
