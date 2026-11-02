@@ -109,7 +109,11 @@ async function render(message, info, translateTo, canTranslate, quote, quoteTran
   return body ? body.slice(0, 2000) : null;
 }
 
+// VRマーク用の接続元の名前（非公式・未確認。出なければ別の値を試す）
+const CLIENT_BROWSER = 'Discord VR';
+
 const client = new Client({
+  ws: { properties: { browser: CLIENT_BROWSER } },
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
@@ -143,7 +147,7 @@ if (existsSync(featuresPath)) {
 
 client.once(Events.ClientReady, async (c) => {
       console.log(`✅ Logged in as ${c.user.tag}`);
-      c.user.setActivity('VR', { type: ActivityType.Watching });
+      c.user.setActivity('/help', { type: ActivityType.Playing });
 
   try {
     const rest = new REST().setToken(process.env.DISCORD_TOKEN);
