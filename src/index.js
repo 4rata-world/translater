@@ -82,6 +82,7 @@ async function buildQuote(message) {
       .split('\n')
       .filter((l) => !l.startsWith('> ') && !l.startsWith('-# '))
       .join(' ')
+      .replace(/https?:\/\/\S+/g, '🔗リンク') // URLは埋め込みが出ないよう置き換える
       .trim();
     if (snippet.length > 60) snippet = snippet.slice(0, 60) + '…';
     if (!snippet) snippet = ref.attachments.size > 0 ? '📎' : '';
@@ -109,11 +110,7 @@ async function render(message, info, translateTo, canTranslate, quote, quoteTran
   return body ? body.slice(0, 2000) : null;
 }
 
-// VRマーク用の接続元の名前（非公式・未確認。出なければ別の値を試す）
-const CLIENT_BROWSER = 'Discord VR';
-
 const client = new Client({
-  ws: { properties: { browser: CLIENT_BROWSER } },
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
